@@ -6,11 +6,17 @@
 (def base-zootex-path
   "/zootex")
 
+(defn predecessor-of [my-node ordered-children]
+  (let [child-name (subs my-node (inc (count base-zootex-path)))]
+    (str base-zootex-path "/" (nth ordered-children (dec (.indexOf ordered-children child-name))))))
+
 (defn watch-predecessor [client my-node ordered-children]
-  (let [watch-trigger (promise)
-        watch-fn (fn [{:keys [event-type]}]
+  (let [predecessor (predecessor-of my-node ordered-children)
+        watch-trigger (promise)
+        watch-fn (fn [{:keys [event-type path]}]
                    (when (= event-type :NodeDeleted)
                      (deliver watch-trigger true)))]
+    (zk/exists client predecessor :watcher watch-fn)
     watch-trigger))
 
 (defn wait-for-unlock [client my-node all-children]
