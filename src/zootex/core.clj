@@ -15,14 +15,18 @@
         watch-fn (fn [{:keys [event-type path]}]
                    (when (= event-type :NodeDeleted)
                      (deliver watch-trigger true)))]
-    (zk/exists client predecessor :watcher watch-fn)
-    watch-trigger))
+    (when (zk/exists client predecessor :watcher watch-fn)
+      watch-trigger)))
 
 (defn wait-for-unlock [client my-node all-children]
   (let [node-name (subs my-node (inc (count base-zootex-path)))
         ordered-children (zutil/sort-sequential-nodes (zk/children client base-zootex-path))
         watch-trigger (watch-predecessor client my-node ordered-children)]
-    @watch-trigger))
+    (if watch-trigger
+      @watch-trigger
+      (do
+        (release-lock client)
+        (take-lock client)))))
 
 (defn winning-lock? [my-node all-children]
   (apply >= (cons (zutil/extract-id my-node)
