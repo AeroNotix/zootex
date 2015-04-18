@@ -18,21 +18,16 @@
     (when (zk/exists client predecessor :watcher watch-fn)
       watch-trigger)))
 
-(defn wait-for-unlock [client my-node all-children]
-  (let [node-name (subs my-node (inc (count base-zootex-path)))
-        ordered-children (zutil/sort-sequential-nodes (zk/children client base-zootex-path))
-        watch-trigger (watch-predecessor client my-node ordered-children)]
-    (if watch-trigger
-      @watch-trigger
-      (do
-        (release-lock client)
-        (take-lock client)))))
+(defn unlock [client]
+  (zk/close client))
 
 (defn winning-lock? [my-node all-children]
   (apply >= (cons (zutil/extract-id my-node)
               (sort (mapv zutil/extract-id all-children)))))
 
-(defn take-lock [client]
+(declare wait-for-unlock)
+
+(defn lock [client]
   (when-not (zk/exists client base-zootex-path)
     (zk/create client base-zootex-path :persistent? true))
   (let [my-node (zk/create client (str base-zootex-path "/-lock") :sequential? true)
@@ -41,13 +36,20 @@
       true
       (wait-for-unlock client my-node all-children))))
 
-(defn release-lock [client]
-  (zk/close client))
+(defn wait-for-unlock [client my-node all-children]
+  (let [node-name (subs my-node (inc (count base-zootex-path)))
+        ordered-children (zutil/sort-sequential-nodes (zk/children client base-zootex-path))
+        watch-trigger (watch-predecessor client my-node ordered-children)]
+    (if watch-trigger
+      @watch-trigger
+      (do
+        (unlock client)
+        (lock client)))))
 
 (defmacro with-lock [zookeeper-location & body]
   `(let [client# (zk/connect ~zookeeper-location)]
      (try
-       (take-lock client#)
+       (lock client#)
        ~@body
        (finally
-         (release-lock client#)))))
+         (unlock client#)))))
