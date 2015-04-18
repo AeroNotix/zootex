@@ -3,8 +3,7 @@
             [zookeeper.util :as zutil]))
 
 
-(def base-zootex-path
-  "/zootex")
+(def base-zootex-path "/zootex")
 
 (defn predecessor-of [my-node ordered-children]
   (let [child-name (subs my-node (inc (count base-zootex-path)))]
