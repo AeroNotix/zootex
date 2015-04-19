@@ -27,14 +27,15 @@
 
 (declare wait-for-unlock)
 
-(defn lock [client]
+(defn lock [client & {:keys [wait-for-unlock?]}]
   (when-not (zk/exists client base-zootex-path)
     (zk/create client base-zootex-path :persistent? true))
   (let [my-node (zk/create client (str base-zootex-path "/-lock") :sequential? true)
         all-children (zk/children client base-zootex-path)]
     (if (winning-lock? my-node all-children)
       true
-      (wait-for-unlock client my-node all-children))))
+      (when wait-for-unlock?
+        (wait-for-unlock client my-node all-children)))))
 
 (defn wait-for-unlock [client my-node all-children]
   (let [node-name (subs my-node (inc (count base-zootex-path)))
@@ -49,7 +50,7 @@
 (defmacro with-lock [zookeeper-location & body]
   `(let [client# (zk/connect ~zookeeper-location)]
      (try
-       (lock client#)
+       (lock client# {:wait-for-unlock? true})
        ~@body
        (finally
          (unlock client#)))))
