@@ -22,7 +22,7 @@
   (zk/close client))
 
 (defn winning-lock? [my-node all-children]
-  (apply >= (cons (zutil/extract-id my-node)
+  (apply <= (cons (zutil/extract-id my-node)
               (sort (mapv zutil/extract-id all-children)))))
 
 (declare wait-for-unlock)
